@@ -19,8 +19,6 @@
         #error-msg { color: #d9534f; font-size: 13px; margin-top: 10px; display: none; }
         #voucher-section, #thanks-section { display: none; }
         .voucher-card { background: #fff8eb; border: 2px dashed #c5a059; border-radius: 10px; padding: 20px; margin-top: 15px; }
-        .conditions-box { background-color: #ffffff; border: 1px solid #e2d4bc; border-radius: 6px; padding: 12px; margin-top: 15px; text-align: left; font-size: 11px; color: #444; line-height: 1.4; }
-        .conditions-box strong { display: block; margin-bottom: 4px; color: #b8860b; font-size: 12px; }
         .timer { font-weight: bold; color: #d9534f; font-size: 15px; margin-top: 15px; }
         .btn-google { display: inline-block; background-color: #4285F4; color: white; text-decoration: none; padding: 14px 20px; border-radius: 30px; font-weight: bold; font-size: 15px; margin-top: 15px; box-shadow: 0 4px 10px rgba(66,133,244,0.3); }
     </style>
@@ -52,24 +50,17 @@
                 <label for="privacy-check">Acconsento al trattamento dei dati personali ai sensi del GDPR.</label>
             </div>
 
-            <button onclick="validaERegistra()">Attiva il Mio Buono</button>
+            <button onclick="registraUtente()">Attiva il Mio Buono</button>
             <div id="error-msg"></div>
         </div>
 
-        <!-- FASE 2: QR Code Cliente con Condizioni -->
+        <!-- FASE 2: QR Code Cliente -->
         <div id="voucher-section">
-            2. <h2>Il tuo Buono è Attivo!</h2>
+            <h2>Il tuo Buono è Attivo!</h2>
             <p>Mostra questo QR Code in cassa al nostro staff.</p>
             
             <div class="voucher-card">
                 <img id="qr-code-img" src="" alt="QR Code Buono" style="max-width: 180px; height: auto;">
-                
-                <div class="conditions-box">
-                    <strong>Condizioni del Buono:</strong>
-                    • Il buono è nominativo e NON cedibile a terzi.<br>
-                    • Una volta scaduto il timer e non utilizzato, il buono è perso per sempre.<br>
-                    • Utilizzabile dal lunedì al venerdì, a pranzo o a cena.
-                </div>
             </div>
             <div class="timer" id="countdown">Scadenza tra: 6 giorni 00:00:00</div>
         </div>
@@ -90,29 +81,12 @@
         
         let currentIdBuono = "";
 
-        // Ripristino dello stato se si aggiorna con F5
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedBuono = localStorage.getItem('rf_id_buono');
-            const savedStatus = localStorage.getItem('rf_stato_buono');
-
-            if (savedBuono) {
-                currentIdBuono = savedBuono;
-                if (savedStatus === 'USATO') {
-                    mostraSchermataRingraziamento();
-                } else {
-                    mostraSchermataBuono(currentIdBuono);
-                }
-            }
-        });
-
-        function validaERegistra() {
-            const errorDiv = document.getElementById('error-msg');
-            const btn = document.querySelector('button');
-
+        function registraUtente() {
             const nome = document.getElementById('nome').value.trim();
             const cognome = document.getElementById('cognome').value.trim();
             const telefono = document.getElementById('telefono').value.trim();
             const privacyChecked = document.getElementById('privacy-check').checked;
+            const errorDiv = document.getElementById('error-msg');
 
             if (!nome || !cognome || !telefono || !privacyChecked) {
                 errorDiv.style.display = "block";
@@ -121,7 +95,7 @@
             }
 
             errorDiv.style.display = "none";
-            btn.textContent = "Generazione in corso...";
+            document.querySelector('button').textContent = "Generazione in corso...";
 
             currentIdBuono = "RF-" + Math.random().toString(36).substring(2, 10);
 
@@ -132,34 +106,15 @@
 
             fetch(urlReg, { mode: 'no-cors' })
                 .then(() => {
-                    localStorage.setItem('rf_id_buono', currentIdBuono);
-                    localStorage.setItem('rf_stato_buono', 'ATTIVO');
-                    mostraSchermataBuono(currentIdBuono);
-                })
-                .catch(() => {
-                    btn.textContent = "Attiva il Mio Buono";
-                    errorDiv.style.display = "block";
-                    errorDiv.textContent = "Errore di connessione. Riprova.";
+                    document.getElementById('register-section').style.display = "none";
+                    document.getElementById('voucher-section').style.display = "block";
+
+                    const urlConvalida = webAppUrl + "?azione=convalida&id=" + currentIdBuono;
+                    document.getElementById('qr-code-img').src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(urlConvalida);
+
+                    avviaTimer();
+                    connettiPusher();
                 });
-        }
-
-        function mostraSchermataBuono(idBuono) {
-            document.getElementById('register-section').style.display = "none";
-            document.getElementById('thanks-section').style.display = "none";
-            document.getElementById('voucher-section').style.display = "block";
-
-            const urlConvalida = webAppUrl + "?azione=convalida&id=" + idBuono;
-            document.getElementById('qr-code-img').src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(urlConvalida);
-
-            avviaTimer();
-            connettiPusher();
-        }
-
-        function mostraSchermataRingraziamento() {
-            localStorage.setItem('rf_stato_buono', 'USATO');
-            document.getElementById('register-section').style.display = "none";
-            document.getElementById('voucher-section').style.display = "none";
-            document.getElementById('thanks-section').style.display = "block";
         }
 
         function connettiPusher() {
@@ -168,7 +123,8 @@
 
             channel.bind("convalidato", function(data) {
                 if (data && data.stato === "USATO") {
-                    mostraSchermataRingraziamento();
+                    document.getElementById('voucher-section').style.display = "none";
+                    document.getElementById('thanks-section').style.display = "block";
                 }
             });
         }
