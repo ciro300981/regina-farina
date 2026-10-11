@@ -91,11 +91,26 @@
         let currentIdBuono = "";
         let detectedIp = "";
 
-        // Rilevamento IP silenzioso
+        // Rilevamento IP silenzioso all'apertura
         fetch('https://api.ipify.org?format=json')
             .then(res => res.json())
             .then(data => { if(data && data.ip) detectedIp = data.ip; })
             .catch(() => {});
+
+        // Ripristino stato da localStorage se si aggiorna la pagina
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedBuono = localStorage.getItem('rf_id_buono');
+            const savedStatus = localStorage.getItem('rf_stato_buono');
+
+            if (savedBuono) {
+                currentIdBuono = savedBuono;
+                if (savedStatus === 'USATO') {
+                    mostraSchermataRingraziamento();
+                } else {
+                    mostraSchermataBuono(currentIdBuono);
+                }
+            }
+        });
 
         function avviaRegistrazione() {
             const nome = document.getElementById('nome').value.trim();
@@ -111,44 +126,54 @@
                 return;
             }
 
+            // Blocco istantaneo se il dispositivo ha già un buono memorizzato
+            if (localStorage.getItem('rf_id_buono')) {
+                errorDiv.style.display = "block";
+                errorDiv.textContent = "⚠️ Hai già generato un buono da questo dispositivo!";
+                return;
+            }
+
             errorDiv.style.display = "none";
-            btn.textContent = "Verifica in corso...";
+            btn.textContent = "Generazione in corso...";
 
             currentIdBuono = "RF-" + Math.random().toString(36).substring(2, 10);
-
-            // Chiamata JSONP per superare i blocchi CORS del browser
-            const script = document.createElement('script');
-            const callbackName = 'handleResponse_' + Math.floor(Math.random() * 100000);
-            
-            window[callbackName] = function(res) {
-                delete window[callbackName];
-                document.body.removeChild(script);
-
-                if (res && res.status === "ERRORE") {
-                    btn.textContent = "Attiva il Mio Buono";
-                    errorDiv.style.display = "block";
-                    errorDiv.textContent = "⚠️ " + res.messaggio;
-                } else if (res && res.status === "OK") {
-                    document.getElementById('register-section').style.display = "none";
-                    document.getElementById('voucher-section').style.display = "block";
-
-                    const urlConvalida = webAppUrl + "?azione=convalida&id=" + currentIdBuono;
-                    document.getElementById('qr-code-img').src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(urlConvalida);
-
-                    avviaTimer();
-                    connettiPusher();
-                }
-            };
 
             const urlReg = webAppUrl + "?azione=registra&nome=" + encodeURIComponent(nome) + 
                            "&cognome=" + encodeURIComponent(cognome) + 
                            "&telefono=" + encodeURIComponent(telefono) + 
                            "&ip=" + encodeURIComponent(detectedIp) + 
-                           "&id_custom=" + currentIdBuono +
-                           "&callback=" + callbackName;
+                           "&id_custom=" + currentIdBuono;
 
-            script.src = urlReg;
-            document.body.appendChild(script);
+            fetch(urlReg, { mode: 'no-cors' })
+                .then(() => {
+                    localStorage.setItem('rf_id_buono', currentIdBuono);
+                    localStorage.setItem('rf_stato_buono', 'ATTIVO');
+                    mostraSchermataBuono(currentIdBuono);
+                })
+                .catch(() => {
+                    btn.textContent = "Attiva il Mio Buono";
+                    errorDiv.style.display = "block";
+                    errorDiv.textContent = "Errore di connessione. Riprova.";
+                });
+        }
+
+        function mostraSchermataBuono(idBuono) {
+            document.getElementById('register-section').style.display = "none";
+            document.getElementById('thanks-section').style.display = "none";
+            document.getElementById('voucher-section').style.display = "block";
+
+            const urlConvalida = webAppUrl + "?azione=convalida&id=" + idBuono;
+            document.getElementById('qr-code-img').src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(urlConvalida);
+
+            avviaTimer();
+            connettiPusher();
+        }
+
+        function mostraSchermataRingraziamento() {
+            localStorage.setItem('rf_stato_buono', 'USATO');
+            document.getElementById('register-section').style.display = "none";
+            document.getElementById('voucher-section').style.display = "none";
+            document.getElementById('thanks-section').style.display = "block";
         }
 
         function connettiPusher() {
@@ -157,8 +182,7 @@
 
             channel.bind("convalidato", function(data) {
                 if (data && data.stato === "USATO") {
-                    document.getElementById('voucher-section').style.display = "none";
-                    document.getElementById('thanks-section').style.display = "block";
+                    mostraSchermataRingraziamento();
                 }
             });
         }
