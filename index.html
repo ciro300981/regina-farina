@@ -90,6 +90,21 @@
         
         let currentIdBuono = "";
 
+        // Controllo automatico all'apertura o ricarica (F5) della pagina
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedBuono = localStorage.getItem('rf_id_buono');
+            const savedStatus = localStorage.getItem('rf_stato_buono');
+
+            if (savedBuono) {
+                currentIdBuono = savedBuono;
+                if (savedStatus === 'USATO') {
+                    mostraSchermataRingraziamento();
+                } else {
+                    mostraSchermataBuono(currentIdBuono);
+                }
+            }
+        });
+
         function ottieniIpERegistra() {
             const errorDiv = document.getElementById('error-msg');
             const btn = document.querySelector('button');
@@ -108,15 +123,12 @@
             errorDiv.style.display = "none";
             btn.textContent = "Verifica in corso...";
 
-            // Recupera l'IP del dispositivo e poi effettua la registrazione
             fetch('https://api.ipify.org?format=json')
                 .then(res => res.json())
                 .then(data => {
-                    const clientIp = data.ip || "";
-                    registraUtente(nome, cognome, telefono, clientIp);
+                    registraUtente(nome, cognome, telefono, data.ip || "");
                 })
                 .catch(() => {
-                    // Fallback se il servizio IP fallisce
                     registraUtente(nome, cognome, telefono, "");
                 });
         }
@@ -139,21 +151,36 @@
                         errorDiv.style.display = "block";
                         errorDiv.textContent = resText;
                     } else {
-                        document.getElementById('register-section').style.display = "none";
-                        document.getElementById('voucher-section').style.display = "block";
-
-                        const urlConvalida = webAppUrl + "?azione=convalida&id=" + currentIdBuono;
-                        document.getElementById('qr-code-img').src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(urlConvalida);
-
-                        avviaTimer();
-                        connettiPusher();
+                        // Salva l'ID nel browser
+                        localStorage.setItem('rf_id_buono', currentIdBuono);
+                        localStorage.setItem('rf_stato_buono', 'ATTIVO');
+                        mostraSchermataBuono(currentIdBuono);
                     }
                 })
-                .catch(err => {
+                .catch(() => {
                     document.querySelector('button').textContent = "Attiva il Mio Buono";
                     errorDiv.style.display = "block";
                     errorDiv.textContent = "Errore di connessione. Riprova.";
                 });
+        }
+
+        function mostraSchermataBuono(idBuono) {
+            document.getElementById('register-section').style.display = "none";
+            document.getElementById('thanks-section').style.display = "none";
+            document.getElementById('voucher-section').style.display = "block";
+
+            const urlConvalida = webAppUrl + "?azione=convalida&id=" + idBuono;
+            document.getElementById('qr-code-img').src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(urlConvalida);
+
+            avviaTimer();
+            connettiPusher();
+        }
+
+        function mostraSchermataRingraziamento() {
+            localStorage.setItem('rf_stato_buono', 'USATO');
+            document.getElementById('register-section').style.display = "none";
+            document.getElementById('voucher-section').style.display = "none";
+            document.getElementById('thanks-section').style.display = "block";
         }
 
         function connettiPusher() {
@@ -162,8 +189,7 @@
 
             channel.bind("convalidato", function(data) {
                 if (data && data.stato === "USATO") {
-                    document.getElementById('voucher-section').style.display = "none";
-                    document.getElementById('thanks-section').style.display = "block";
+                    mostraSchermataRingraziamento();
                 }
             });
         }
