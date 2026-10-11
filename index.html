@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Regina Farina - Buono Sconto</title>
-    <!-- Libreria ufficiale Pusher CDN -->
+    <!-- Libreria ufficiale Pusher JS via CDN -->
     <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f7f5f0; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
@@ -65,7 +65,7 @@
             <div class="timer" id="countdown">Scadenza tra: 6 giorni 00:00:00</div>
         </div>
 
-        <!-- FASE 3: Schermata Finale Cliente -->
+        <!-- FASE 3: Schermata Finale per il CLIENTE -->
         <div id="thanks-section">
             <h2 style="color: #2e7d32;">🎉 Grazie per la visita!</h2>
             <p>Il tuo buono è stato convalidato con successo alla cassa.</p>
@@ -117,10 +117,12 @@
                 });
         }
 
+        // Connessione WebSocket in tempo reale via Pusher
         function connettiPusher() {
             const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
             const channel = pusher.subscribe("buono-" + currentIdBuono);
 
+            // Ascolta l'evento 'convalidato' scatenato da Google Apps Script
             channel.bind("convalidato", function(data) {
                 if (data && data.stato === "USATO") {
                     document.getElementById('voucher-section').style.display = "none";
