@@ -90,14 +90,15 @@
         
         let currentIdBuono = "";
         let detectedIp = "";
+        let timerInterval = null;
 
-        // Rilevamento IP silenzioso all'apertura
+        // Rilevamento IP
         fetch('https://api.ipify.org?format=json')
             .then(res => res.json())
             .then(data => { if(data && data.ip) detectedIp = data.ip; })
             .catch(() => {});
 
-        // Ripristino stato da localStorage se si aggiorna la pagina
+        // Ripristino stato al ricaricamento (F5)
         window.addEventListener('DOMContentLoaded', () => {
             const savedBuono = localStorage.getItem('rf_id_buono');
             const savedStatus = localStorage.getItem('rf_stato_buono');
@@ -126,17 +127,11 @@
                 return;
             }
 
-            // Blocco istantaneo se il dispositivo ha già un buono memorizzato
-            if (localStorage.getItem('rf_id_buono')) {
-                errorDiv.style.display = "block";
-                errorDiv.textContent = "⚠️ Hai già generato un buono da questo dispositivo!";
-                return;
-            }
-
             errorDiv.style.display = "none";
             btn.textContent = "Generazione in corso...";
 
             currentIdBuono = "RF-" + Math.random().toString(36).substring(2, 10);
+            const adesso = Date.now();
 
             const urlReg = webAppUrl + "?azione=registra&nome=" + encodeURIComponent(nome) + 
                            "&cognome=" + encodeURIComponent(cognome) + 
@@ -148,6 +143,8 @@
                 .then(() => {
                     localStorage.setItem('rf_id_buono', currentIdBuono);
                     localStorage.setItem('rf_stato_buono', 'ATTIVO');
+                    localStorage.setItem('rf_start_time', adesso); // Salva il timestamp di inizio reale
+
                     mostraSchermataBuono(currentIdBuono);
                 })
                 .catch(() => {
@@ -165,7 +162,7 @@
             const urlConvalida = webAppUrl + "?azione=convalida&id=" + idBuono;
             document.getElementById('qr-code-img').src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(urlConvalida);
 
-            avviaTimer();
+            avviaTimerReale();
             connettiPusher();
         }
 
@@ -187,15 +184,33 @@
             });
         }
 
-        function avviaTimer() {
-            let tempoRimanente = 6 * 24 * 60 * 60;
-            setInterval(() => {
-                if (tempoRimanente <= 0) return;
-                tempoRimanente--;
+        function avviaTimerReale() {
+            const durataTotale = 6 * 24 * 60 * 60; // 6 giorni in secondi
+            let startTime = localStorage.getItem('rf_start_time');
+            
+            if (!startTime) {
+                startTime = Date.now();
+                localStorage.setItem('rf_start_time', startTime);
+            }
+
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                const adesso = Date.now();
+                const secondiTrascorsi = Math.floor((adesso - startTime) / 1000);
+                let tempoRimanente = durataTotale - secondiTrascorsi;
+
+                if (tempoRimanente <= 0) {
+                    clearInterval(timerInterval);
+                    document.getElementById('countdown').textContent = "⚠️ Buono Scaduto!";
+                    return;
+                }
+
                 let giorni = Math.floor(tempoRimanente / 86400);
                 let ore = Math.floor((tempoRimanente % 86400) / 3600);
                 let minuti = Math.floor((tempoRimanente % 3600) / 60);
                 let sec = tempoRimanente % 60;
+
                 document.getElementById('countdown').textContent = `Scadenza tra: ${giorni}g ${ore}h ${minuti}m ${sec}s`;
             }, 1000);
         }
