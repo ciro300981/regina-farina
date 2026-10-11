@@ -114,38 +114,21 @@
             errorDiv.style.display = "none";
             btn.textContent = "Verifica in corso...";
 
-            // Controllo preliminare sul foglio prima di inviare
-            const urlCheck = webAppUrl + "?azione=check_duplicato&telefono=" + encodeURIComponent(telefono) + "&ip=" + encodeURIComponent(detectedIp);
-
-            fetch(urlCheck)
-                .then(res => res.text())
-                .then(esito => {
-                    if (esito.indexOf("DUPLICATO") !== -1) {
-                        btn.textContent = "Attiva il Mio Buono";
-                        errorDiv.style.display = "block";
-                        errorDiv.textContent = "⚠️ Dispositivo o numero di telefono già registrato!";
-                    } else {
-                        // Se non è duplicato, esegue la registrazione
-                        inviaRegistrazioneDefinitiva(nome, cognome, telefono, btn);
-                    }
-                })
-                .catch(() => {
-                    // Se la verifica preventiva fallisce per CORS, procede comunque
-                    inviaRegistrazioneDefinitiva(nome, cognome, telefono, btn);
-                });
-        }
-
-        function inviaRegistrazioneDefinitiva(nome, cognome, telefono, btn) {
             currentIdBuono = "RF-" + Math.random().toString(36).substring(2, 10);
 
-            const urlReg = webAppUrl + "?azione=registra&nome=" + encodeURIComponent(nome) + 
-                           "&cognome=" + encodeURIComponent(cognome) + 
-                           "&telefono=" + encodeURIComponent(telefono) + 
-                           "&ip=" + encodeURIComponent(detectedIp) + 
-                           "&id_custom=" + currentIdBuono;
+            // Chiamata JSONP per superare i blocchi CORS del browser
+            const script = document.createElement('script');
+            const callbackName = 'handleResponse_' + Math.floor(Math.random() * 100000);
+            
+            window[callbackName] = function(res) {
+                delete window[callbackName];
+                document.body.removeChild(script);
 
-            fetch(urlReg, { mode: 'no-cors' })
-                .then(() => {
+                if (res && res.status === "ERRORE") {
+                    btn.textContent = "Attiva il Mio Buono";
+                    errorDiv.style.display = "block";
+                    errorDiv.textContent = "⚠️ " + res.messaggio;
+                } else if (res && res.status === "OK") {
                     document.getElementById('register-section').style.display = "none";
                     document.getElementById('voucher-section').style.display = "block";
 
@@ -154,7 +137,18 @@
 
                     avviaTimer();
                     connettiPusher();
-                });
+                }
+            };
+
+            const urlReg = webAppUrl + "?azione=registra&nome=" + encodeURIComponent(nome) + 
+                           "&cognome=" + encodeURIComponent(cognome) + 
+                           "&telefono=" + encodeURIComponent(telefono) + 
+                           "&ip=" + encodeURIComponent(detectedIp) + 
+                           "&id_custom=" + currentIdBuono +
+                           "&callback=" + callbackName;
+
+            script.src = urlReg;
+            document.body.appendChild(script);
         }
 
         function connettiPusher() {
