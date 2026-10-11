@@ -52,7 +52,7 @@
                 <label for="privacy-check">Acconsento al trattamento dei dati personali ai sensi del GDPR.</label>
             </div>
 
-            <button onclick="ottieniIpERegistra()">Attiva il Mio Buono</button>
+            <button onclick="validaERegistra()">Attiva il Mio Buono</button>
             <div id="error-msg"></div>
         </div>
 
@@ -90,7 +90,7 @@
         
         let currentIdBuono = "";
 
-        // Controllo automatico all'apertura o ricarica (F5) della pagina
+        // Ripristino dello stato se si aggiorna con F5
         window.addEventListener('DOMContentLoaded', () => {
             const savedBuono = localStorage.getItem('rf_id_buono');
             const savedStatus = localStorage.getItem('rf_stato_buono');
@@ -105,7 +105,7 @@
             }
         });
 
-        function ottieniIpERegistra() {
+        function validaERegistra() {
             const errorDiv = document.getElementById('error-msg');
             const btn = document.querySelector('button');
 
@@ -121,44 +121,23 @@
             }
 
             errorDiv.style.display = "none";
-            btn.textContent = "Verifica in corso...";
+            btn.textContent = "Generazione in corso...";
 
-            fetch('https://api.ipify.org?format=json')
-                .then(res => res.json())
-                .then(data => {
-                    registraUtente(nome, cognome, telefono, data.ip || "");
-                })
-                .catch(() => {
-                    registraUtente(nome, cognome, telefono, "");
-                });
-        }
-
-        function registraUtente(nome, cognome, telefono, clientIp) {
-            const errorDiv = document.getElementById('error-msg');
             currentIdBuono = "RF-" + Math.random().toString(36).substring(2, 10);
 
             const urlReg = webAppUrl + "?azione=registra&nome=" + encodeURIComponent(nome) + 
                            "&cognome=" + encodeURIComponent(cognome) + 
                            "&telefono=" + encodeURIComponent(telefono) + 
-                           "&ip=" + encodeURIComponent(clientIp) + 
                            "&id_custom=" + currentIdBuono;
 
-            fetch(urlReg)
-                .then(response => response.text())
-                .then(resText => {
-                    if (resText.includes("ERRORE")) {
-                        document.querySelector('button').textContent = "Attiva il Mio Buono";
-                        errorDiv.style.display = "block";
-                        errorDiv.textContent = resText;
-                    } else {
-                        // Salva l'ID nel browser
-                        localStorage.setItem('rf_id_buono', currentIdBuono);
-                        localStorage.setItem('rf_stato_buono', 'ATTIVO');
-                        mostraSchermataBuono(currentIdBuono);
-                    }
+            fetch(urlReg, { mode: 'no-cors' })
+                .then(() => {
+                    localStorage.setItem('rf_id_buono', currentIdBuono);
+                    localStorage.setItem('rf_stato_buono', 'ATTIVO');
+                    mostraSchermataBuono(currentIdBuono);
                 })
                 .catch(() => {
-                    document.querySelector('button').textContent = "Attiva il Mio Buono";
+                    btn.textContent = "Attiva il Mio Buono";
                     errorDiv.style.display = "block";
                     errorDiv.textContent = "Errore di connessione. Riprova.";
                 });
