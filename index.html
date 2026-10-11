@@ -141,9 +141,10 @@
 
             fetch(urlReg, { mode: 'no-cors' })
                 .then(() => {
+                    // Salvataggio permanente dello stato e dell'orario di avvio
                     localStorage.setItem('rf_id_buono', currentIdBuono);
                     localStorage.setItem('rf_stato_buono', 'ATTIVO');
-                    localStorage.setItem('rf_start_time', adesso); // Salva il timestamp di inizio reale
+                    localStorage.setItem('rf_start_time', adesso.toString());
 
                     mostraSchermataBuono(currentIdBuono);
                 })
@@ -186,11 +187,11 @@
 
         function avviaTimerReale() {
             const durataTotale = 6 * 24 * 60 * 60; // 6 giorni in secondi
-            let startTime = localStorage.getItem('rf_start_time');
+            let startTimeStr = localStorage.getItem('rf_start_time');
+            let startTime = startTimeStr ? parseInt(startTimeStr, 10) : Date.now();
             
-            if (!startTime) {
-                startTime = Date.now();
-                localStorage.setItem('rf_start_time', startTime);
+            if (!startTimeStr) {
+                localStorage.setItem('rf_start_time', startTime.toString());
             }
 
             if (timerInterval) clearInterval(timerInterval);
