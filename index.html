@@ -59,7 +59,7 @@
         <!-- FASE 2: QR Code Cliente con Condizioni -->
         <div id="voucher-section">
             <h2>Il tuo Buono è Attivo!</h2>
-            <p>Mostra questo QR Code in cassa al nostro staff.</p>
+            <p>Mostra questo QR Code in cassa al momento del conto per ricevere il 20% di sconto e l'amaro della casa. Valido dal lunedì al venerdì.</p>
             
             <div class="voucher-card">
                 <img id="qr-code-img" src="" alt="QR Code Buono" style="max-width: 180px; height: auto;">
@@ -209,12 +209,4 @@
 
                 let giorni = Math.floor(tempoRimanente / 86400);
                 let ore = Math.floor((tempoRimanente % 86400) / 3600);
-                let minuti = Math.floor((tempoRimanente % 3600) / 60);
-                let sec = tempoRimanente % 60;
-
-                document.getElementById('countdown').textContent = `Scadenza tra: ${giorni}g ${ore}h ${minuti}m ${sec}s`;
-            }, 1000);
-        }
-    </script>
-</body>
-</html>
+                let minuti = Math.floor((tempoRiman
