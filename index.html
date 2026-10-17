@@ -32,7 +32,7 @@
 
         <!-- FASE 1: Form Registrazione -->
         <div id="register-section">
-            <h2>Buono Sconto 30%</h2>
+            <h2>Pass Privilegiato: Sconto 20% + Amaro Offerto</h2>
             <p>Inserisci i tuoi dati per attivare subito il tuo buono sconto!</p>
             
             <div class="form-group">
@@ -123,7 +123,11 @@
 
             if (!nome || !cognome || !telefono || !privacyChecked) {
                 errorDiv.style.display = "block";
-                errorDiv.textContent = "Compila tutti i campi ed accetta la privacy.";
+                if (!privacyChecked) {
+                    errorDiv.textContent = "Devi accettare il trattamento dei dati personali (GDPR) per continuare.";
+                } else {
+                    errorDiv.textContent = "Compila tutti i campi obbligatori.";
+                }
                 return;
             }
 
@@ -209,4 +213,12 @@
 
                 let giorni = Math.floor(tempoRimanente / 86400);
                 let ore = Math.floor((tempoRimanente % 86400) / 3600);
-                let minuti = Math.floor((tempoRiman
+                let minuti = Math.floor((tempoRimanente % 3600) / 60);
+                let sec = tempoRimanente % 60;
+
+                document.getElementById('countdown').textContent = `Scadenza tra: ${giorni}g ${ore}h ${minuti}m ${sec}s`;
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
