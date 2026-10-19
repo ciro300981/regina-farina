@@ -9,7 +9,17 @@
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f7f5f0; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .container { background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 30px; width: 100%; max-width: 400px; text-align: center; box-sizing: border-box; }
-        .logo { max-width: 260px; width: 100%; height: auto; margin-bottom: 20px; } /* MODIFICATO: Logo ulteriormente ingrandito a 260px */
+        
+        /* LOGO INGRANDITO E RIFINITO NEL CONTRASTO/NITIDEZZA */
+        .logo { 
+            max-width: 260px; 
+            width: 100%; 
+            height: auto; 
+            margin-bottom: 20px; 
+            filter: contrast(125%) brightness(92%); 
+            image-rendering: -webkit-optimize-contrast; 
+        }
+
         h2 { color: #2c2c2c; font-size: 22px; margin-bottom: 10px; }
         p { color: #666; font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
         .form-group { text-align: left; margin-bottom: 15px; }
@@ -100,4 +110,125 @@
 
         // Ripristino stato al ricaricamento (F5)
         window.addEventListener('DOMContentLoaded', () => {
-            const savedBuono = localStorage.getItem('rf_id
+            const savedBuono = localStorage.getItem('rf_id_buono');
+            const savedStatus = localStorage.getItem('rf_stato_buono');
+
+            if (savedBuono) {
+                currentIdBuono = savedBuono;
+                if (savedStatus === 'USATO') {
+                    mostraSchermataRingraziamento();
+                } else {
+                    mostraSchermataBuono(currentIdBuono);
+                }
+            }
+        });
+
+        function avviaRegistrazione() {
+            const nome = document.getElementById('nome').value.trim();
+            const cognome = document.getElementById('cognome').value.trim();
+            const telefono = document.getElementById('telefono').value.trim();
+            const privacyChecked = document.getElementById('privacy-check').checked;
+            const errorDiv = document.getElementById('error-msg');
+            const btn = document.querySelector('button');
+
+            if (!nome || !cognome || !telefono || !privacyChecked) {
+                errorDiv.style.display = "block";
+                if (!privacyChecked) {
+                    errorDiv.textContent = "Devi accettare il trattamento dei dati personali (GDPR) per continuare.";
+                } else {
+                    errorDiv.textContent = "Compila tutti i campi obbligatori.";
+                }
+                return;
+            }
+
+            errorDiv.style.display = "none";
+            btn.textContent = "Generazione in corso...";
+
+            currentIdBuono = "RF-" + Math.random().toString(36).substring(2, 10);
+            const adesso = Date.now();
+
+            const urlReg = webAppUrl + "?azione=registra&nome=" + encodeURIComponent(nome) + 
+                           "&cognome=" + encodeURIComponent(cognome) + 
+                           "&telefono=" + encodeURIComponent(telefono) + 
+                           "&ip=" + encodeURIComponent(detectedIp) + 
+                           "&id_custom=" + currentIdBuono;
+
+            fetch(urlReg, { mode: 'no-cors' })
+                .then(() => {
+                    // Salvataggio permanente dello stato e dell'orario di avvio
+                    localStorage.setItem('rf_id_buono', currentIdBuono);
+                    localStorage.setItem('rf_stato_buono', 'ATTIVO');
+                    localStorage.setItem('rf_start_time', adesso.toString());
+
+                    mostraSchermataBuono(currentIdBuono);
+                })
+                .catch(() => {
+                    btn.textContent = "Attiva il Mio Buono";
+                    errorDiv.style.display = "block";
+                    errorDiv.textContent = "Errore di connessione. Riprova.";
+                });
+        }
+
+        function mostraSchermataBuono(idBuono) {
+            document.getElementById('register-section').style.display = "none";
+            document.getElementById('thanks-section').style.display = "none";
+            document.getElementById('voucher-section').style.display = "block";
+
+            const urlConvalida = webAppUrl + "?azione=convalida&id=" + idBuono;
+            document.getElementById('qr-code-img').src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(urlConvalida);
+
+            avviaTimerReale();
+            connettiPusher();
+        }
+
+        function mostraSchermataRingraziamento() {
+            localStorage.setItem('rf_stato_buono', 'USATO');
+            document.getElementById('register-section').style.display = "none";
+            document.getElementById('voucher-section').style.display = "none";
+            document.getElementById('thanks-section').style.display = "block";
+        }
+
+        function connettiPusher() {
+            const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+            const channel = pusher.subscribe("buono-" + currentIdBuono);
+
+            channel.bind("convalidato", function(data) {
+                if (data && data.stato === "USATO") {
+                    mostraSchermataRingraziamento();
+                }
+            });
+        }
+
+        function avviaTimerReale() {
+            const durataTotale = 6 * 24 * 60 * 60; // 6 giorni in secondi
+            let startTimeStr = localStorage.getItem('rf_start_time');
+            let startTime = startTimeStr ? parseInt(startTimeStr, 10) : Date.now();
+            
+            if (!startTimeStr) {
+                localStorage.setItem('rf_start_time', startTime.toString());
+            }
+
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                const adesso = Date.now();
+                const secondiTrascorsi = Math.floor((adesso - startTime) / 1000);
+                let tempoRimanente = durataTotale - secondiTrascorsi;
+
+                if (tempoRimanente <= 0) {
+                    clearInterval(timerInterval);
+                    document.getElementById('countdown').textContent = "⚠️ Buono Scaduto!";
+                    return;
+                }
+
+                let giorni = Math.floor(tempoRimanente / 86400);
+                let ore = Math.floor((tempoRimanente % 86400) / 3600);
+                let minuti = Math.floor((tempoRimanente % 3600) / 60);
+                let sec = tempoRimanente % 60;
+
+                document.getElementById('countdown').textContent = `Scadenza tra: ${giorni}g ${ore}h ${minuti}m ${sec}s`;
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
